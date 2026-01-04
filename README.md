@@ -18,6 +18,7 @@
 - **PC**: Windows/macOS/Linux (Tauri 封装)
 - **Mobile**: Android/iOS/iPad
 - **Server**: Docker
+- **CLI**: CLI mode to update clipboard and access clipboard data
 
 ## Personal App
 App 主要面向个人用户。
@@ -114,6 +115,20 @@ cargo tauri dev
 # Production (Release build)
 cargo tauri build
 ```
+
+### Debugging
+
+**1. Frontend (WebView) Debugging**
+When running `cargo tauri dev`, you can open the browser Inspector to debug the Dioxus UI:
+- **macOS**: `Cmd + Option + I`
+- **Windows / Linux**: `Ctrl + Shift + I`
+
+**2. Backend (Rust) Debugging**
+- **Terminal Logs**: View `println!` and `tracing` logs directly in the terminal where you ran `cargo tauri dev`.
+- **Tauri Logs**: The project is configured with `tauri-plugin-log`. Logs are sent to the terminal and can be configured to show in the DevTools console.
+
+**3. Inspection Tool**
+You can use [tauri-inspect](https://github.com/tauri-apps/tauri-inspect) or standard IDE debuggers (LLDB/GDB) by attaching to the running process.
 **Build Artifacts**:
 After a successful build, the installers and bundles are located in:
 `target/release/bundle/`

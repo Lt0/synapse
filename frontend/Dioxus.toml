@@ -4,3 +4,6 @@ default_platform = "web"
 
 [web.app]
 title = "Synapse"
+
+[web.dev]
+port = 8099

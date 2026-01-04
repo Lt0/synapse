@@ -5,23 +5,32 @@
   "identifier": "fun.lt0.synapse",
   "build": {
     "frontendDist": "../target/dx/frontend/release/web/public",
-    "devUrl": "http://localhost:8080",
-    "beforeDevCommand": "cd frontend && dx serve",
+    "devUrl": "http://127.0.0.1:8099",
+    "beforeDevCommand": "cd frontend && dx serve --port 8099",
     "beforeBuildCommand": "cd frontend && dx build --release"
   },
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Synapse",
         "width": 800,
         "height": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "devtools": true
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "withGlobalTauri": true
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    },
+    "clipboard": null
   },
   "bundle": {
     "active": true,
