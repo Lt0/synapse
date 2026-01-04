@@ -43,8 +43,8 @@ The frontend is built using **Dioxus**, a Rust-based library for building user i
 -   **Language**: Rust
 -   **Build Targets**:
     -   `Web`: Compiles to WebAssembly (`wasm32-unknown-unknown`) for browser access.
-    -   `Desktop`: (Planned) Wrapped via Tauri for native system integration.
-    -   `Mobile`: (Planned) Dioxus Mobile.
+    -   `Desktop`: Wrapped via Tauri v2 for native system integration (macOS, Windows, Linux).
+    -   `Mobile`: Wrapped via Tauri v2 (iOS, Android).
 
 **Key responsibilities**:
 -   Displaying clipboard history.
@@ -95,4 +95,23 @@ The project utilizes **Spacetime DB** for real-time synchronization capabilities
     ```
 
 4.  **Runtime**:
+    Running the backend binary in root directory:
+    ```
+    ./target/release/backend
+    ```
     The resulting binary listens on `0.0.0.0:3000` (default) and serves both the API endpoints and the static SPA.
+
+5.  **Native App Build (Tauri)**:
+    Tauri wraps the Dioxus frontend in a system WebView.
+    -   **Desktop**: Running in root directory
+        ```
+        cargo tauri build
+        ```
+        produces artifacts in `target/release/bundle/` (e.g., `dmg`, `msi`, `deb`).
+    -   **Mobile**: Running in root directory
+        ```
+        cargo tauri android/ios build
+        ```
+        produces contents in `src-tauri/gen/android/app/build/outputs/apk` or iOS Xcode archive.
+    
+    *Note: The native app currently communicates with the backend services via HTTP (or planned internal IPC).*

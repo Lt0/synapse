@@ -100,3 +100,30 @@ cd backend
 cargo run --release
 ```
 The backend will embed the files from the frontend build. You can access the full app at `http://localhost:3000`.
+
+### Native App (Tauri)
+
+**Execution Directory**:
+Run all Tauri commands from the **Project Root** directory (`/synapse`).
+
+**Desktop (macOS, Windows, Linux)**
+```bash
+# Development (Debug build)
+cargo tauri dev
+
+# Production (Release build)
+cargo tauri build
+```
+**Build Artifacts**:
+After a successful build, the installers and bundles are located in:
+`target/release/bundle/`
+-   **macOS**: `target/release/bundle/macos/` (.app) or `dmg/` (.dmg)
+-   **Windows**: `target/release/bundle/nsis/` (.exe) or `msi/`
+-   **Linux**: `target/release/bundle/deb/` (.deb) or `appimage/`
+
+**Mobile (Android, iOS)**
+*Requires environment setup (Android SDK / Xcode)*
+```bash
+cargo tauri android init # Login one-time setup
+cargo tauri android dev
+```
