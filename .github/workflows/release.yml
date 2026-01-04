@@ -32,7 +32,7 @@ jobs:
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
           node -e "const fs = require('fs'); const path = 'src-tauri/tauri.conf.json'; const c = JSON.parse(fs.readFileSync(path, 'utf8')); c.version = '$VERSION'; fs.writeFileSync(path, JSON.stringify(c, null, 2));"
-          node -e "const fs = require('fs'); ['src-tauri/Cargo.toml', 'frontend/Cargo.toml'].forEach(p => { let c = fs.readFileSync(p, 'utf8'); c = c.replace(/^version = \".*\"/m, 'version = \"$VERSION\"'); fs.writeFileSync(p, c); });"
+          node -e "const fs = require('fs'); ['src-tauri/Cargo.toml', 'frontend/Cargo.toml', 'backend/Cargo.toml'].forEach(p => { let c = fs.readFileSync(p, 'utf8'); c = c.replace(/^version = \".*\"/m, 'version = \"$VERSION\"'); fs.writeFileSync(p, c); });"
 
       - name: Install dependencies (Ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
