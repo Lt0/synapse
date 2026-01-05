@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../target/dx/frontend/release/web/public",
     "devUrl": "http://127.0.0.1:8099",
-    "beforeDevCommand": "cd frontend && dx serve --port 8099",
+    "beforeDevCommand": "cd frontend && dx serve --port 8099 --interactive=false",
     "beforeBuildCommand": "cd frontend && dx build --release"
   },
   "app": {
