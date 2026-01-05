@@ -25,11 +25,19 @@ fn App() -> Element {
                 }
             "#);
 
-            // 2. Listen for events
+            // 2. Listen for clipboard update events
             let mut handler = eval(r#"
                 const { listen } = window.__TAURI__.event;
-                listen('plugin:clipboard://text-changed', (event) => {
-                    dioxus.send(event.payload);
+                listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
+                    console.log("Clipboard update detected:", event);
+                    try {
+                        // Read the clipboard text content
+                        const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
+                        console.log("Read clipboard text:", text);
+                        dioxus.send(text);
+                    } catch (e) {
+                        console.error("Failed to read clipboard:", e);
+                    }
                 });
             "#);
 
