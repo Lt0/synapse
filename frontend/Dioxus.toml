@@ -5,5 +5,9 @@ default_platform = "web"
 [web.app]
 title = "Synapse"
 
+[web.app.metadata]
+favicon = "favicon.ico"
+"og:image" = "logo.png"
+
 [web.dev]
 port = 8099

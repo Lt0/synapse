@@ -59,8 +59,12 @@ fn App() -> Element {
             
             // Header
             header {
-                style: "width: 100%; padding: 20px; text-align: center; border-bottom: 1px solid #333; background: #222;",
-                h2 { style: "color: red;", "DEBUG: FRONTEND LOADED" }
+                style: "width: 100%; padding: 20px; text-align: center; border-bottom: 1px solid #333; background: #222; display: flex; flex-direction: column; align-items: center;",
+                img {
+                    src: "/logo.svg",
+                    style: "width: 64px; height: 64px; margin-bottom: 15px;"
+                }
+                h2 { style: "color: red; font-size: 10px; margin: 0;", "DEBUG: FRONTEND LOADED" }
                 h1 { style: "margin: 0; font-size: 24px; color: #00ffcc;", "Synapse" }
                 p { style: "margin: 5px 0 0; font-size: 14px; color: #888;", "Clipboard synchronized" }
             }
