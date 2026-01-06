@@ -11,6 +11,12 @@
 - **第二阶段**: 支持非文本数据, 例如截图
 - **第三阶段**: 支持文件传输 (例如 Windows 复制文件，Mac 上粘贴到 Finder，通过后端服务传输)
 
+Note:
+当前没有 Mac 的签名, Mac 用户安装之后执行下面的命令才能打开, 否则会提示文件损坏:
+```
+sudo xattr -cr /Applications/synapse.app
+```
+
 # Features
 
 ## Cross Platform

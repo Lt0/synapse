@@ -35,3 +35,21 @@ TODO
 1. 在 build 的时候将版本号注入到 backend/frontend 中
 2. 在 server 端的 log 显示当前版本
 3. 在 frontend 支持查看当前版本
+
+# CI/CD
+## 自动构建发布
+实现 github action 到 .github/workflows/release.yml, 要求实现:
+1. 自动构建以下平台和架构的安装包:
+  1.1 Mac OS: aarch64(dmg)
+  1.2 Windows: x64(msi 和 setup.exe)
+  1.3 Linux: amd64(deb, rpm, AppImage), aarch64(app.tar.gz)
+
+2. Mac 版本签名
+在 github action 中设置以下 Secrets 以便 tauri-action 能自动处理签名和公证：
+APPLE_CERTIFICATE (Base64 编码的 .p12 证书)
+APPLE_CERTIFICATE_PASSWORD
+APPLE_SIGNING_IDENTITY
+APPLE_ID
+APPLE_PASSWORD (App-specific password)
+
+# 更新
