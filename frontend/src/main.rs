@@ -21,7 +21,7 @@ fn App() -> Element {
                     console.log("Starting clipboard monitor...");
                     window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
                 } catch (e) {
-                    console.error("Failed to start monitor:", e);
+                    console.error("Failed to start monitor: " + e);
                 }
             "#);
 
@@ -29,14 +29,14 @@ fn App() -> Element {
             let mut handler = eval(r#"
                 const { listen } = window.__TAURI__.event;
                 listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
-                    console.log("Clipboard update detected:", event);
+                    console.log("Clipboard update detected");
                     try {
                         // Read the clipboard text content
                         const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
-                        console.log("Read clipboard text:", text);
+                        console.log("Read clipboard text: " + text);
                         dioxus.send(text);
                     } catch (e) {
-                        console.error("Failed to read clipboard:", e);
+                        console.error("Failed to read clipboard: " + e);
                     }
                 });
             "#);
