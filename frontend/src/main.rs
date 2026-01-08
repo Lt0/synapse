@@ -85,98 +85,78 @@ fn App() -> Element {
     // Effect to start monitoring and listen for events
     use_effect(move || {
         spawn(async move {
-            // 1. Start monitoring (via eval to call Tauri plugin command)
-            let _ = eval(
+            // 1. Start monitoring and setup event listener
+            let mut handler = eval(
                 r#"
-                try {
-                    console.log("Starting clipboard monitor...");
-                    window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
-                } catch (e) {
-                    console.error("Failed to start monitor: " + e);
-                }
+                (async function() {
+                    try {
+                        console.log("Starting clipboard monitor...");
+                        await window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
+                        console.log("Clipboard monitor started successfully");
+                    } catch (e) {
+                        console.error("Failed to start monitor: " + e);
+                    }
+                    
+                    try {
+                        const { listen } = window.__TAURI__.event;
+                        console.log("Setting up clipboard event listener...");
+                        const unlisten = await listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
+                            console.log("Clipboard update event received:", event);
+                            try {
+                                // 直接使用 Tauri API 读取剪贴板（不需要用户交互）
+                                const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
+                                console.log("Read clipboard text:", text);
+                                if (text && text.trim() !== '') {
+                                    const clipboardData = {
+                                        type: 'text',
+                                        content: text,
+                                        mimeType: 'text/plain'
+                                    };
+                                    console.log("Sending clipboard data to Dioxus:", clipboardData);
+                                    dioxus.send(clipboardData);
+                                }
+                            } catch (e) {
+                                console.error("Failed to read clipboard: " + e);
+                            }
+                        });
+                        console.log("Clipboard event listener set up successfully");
+                    } catch (e) {
+                        console.error("Failed to set up event listener: " + e);
+                    }
+                })();
             "#,
             );
 
-            // 2. Listen for clipboard update events
-            let mut handler = eval(
+            // 3. Also listen for window focus events to check clipboard when window gains focus
+            let _ = eval(
                 r#"
-                const { listen } = window.__TAURI__.event;
-                listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
-                    console.log("Clipboard update detected");
+                (async function() {
                     try {
-                        // 尝试检测并读取剪贴板的不同格式
-                        let clipboardData = {
-                            type: 'text',
-                            content: '',
-                            mimeType: null
-                        };
+                        const { getCurrentWindow } = window.__TAURI__.window;
+                        const currentWindow = getCurrentWindow();
                         
-                        // 优先尝试读取 HTML 格式（保留富文本格式）
-                        try {
-                            // 使用 Clipboard API 尝试读取 HTML
-                            if (navigator.clipboard && navigator.clipboard.read) {
-                                const clipboardItems = await navigator.clipboard.read();
-                                for (const clipboardItem of clipboardItems) {
-                                    // 检查是否有 HTML 格式
-                                    if (clipboardItem.types.includes('text/html')) {
-                                        const htmlBlob = await clipboardItem.getType('text/html');
-                                        const htmlContent = await htmlBlob.text();
-                                        clipboardData = {
-                                            type: 'html',
-                                            content: htmlContent,
-                                            mimeType: 'text/html'
-                                        };
-                                        break;
-                                    }
-                                    // 如果没有 HTML，尝试纯文本
-                                    if (clipboardItem.types.includes('text/plain')) {
-                                        const textBlob = await clipboardItem.getType('text/plain');
-                                        const textContent = await textBlob.text();
-                                        if (clipboardData.type === 'text' && clipboardData.content === '') {
-                                            clipboardData = {
-                                                type: 'text',
-                                                content: textContent,
-                                                mimeType: 'text/plain'
-                                            };
-                                        }
-                                    }
-                                }
-                            } else {
-                                // 回退到 Tauri API
-                                const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
-                                if (text) {
-                                    clipboardData = {
-                                        type: 'text',
-                                        content: text,
-                                        mimeType: 'text/plain'
-                                    };
-                                }
-                            }
-                        } catch (htmlError) {
-                            console.log("HTML read failed, trying text fallback:", htmlError);
-                            // 如果 HTML 读取失败，回退到纯文本
+                        // 当窗口获得焦点时，检查剪贴板是否有新内容
+                        currentWindow.onFocus(async () => {
+                            console.log("Window gained focus, checking clipboard...");
                             try {
                                 const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
-                                if (text) {
-                                    clipboardData = {
+                                if (text && text.trim() !== '') {
+                                    const clipboardData = {
                                         type: 'text',
                                         content: text,
                                         mimeType: 'text/plain'
                                     };
+                                    console.log("Clipboard data on focus:", clipboardData);
+                                    dioxus.send(clipboardData);
                                 }
-                            } catch (textError) {
-                                console.error("Failed to read clipboard text: " + textError);
+                            } catch (e) {
+                                console.error("Failed to read clipboard on focus: " + e);
                             }
-                        }
-                        
-                        if (clipboardData.content && clipboardData.content.trim() !== '') {
-                            console.log("Clipboard data:", clipboardData);
-                            dioxus.send(clipboardData);
-                        }
+                        });
                     } catch (e) {
-                        console.error("Failed to read clipboard: " + e);
+                        console.error("Failed to set up focus listener: " + e);
                     }
-                });
+                })();
             "#,
             );
 
