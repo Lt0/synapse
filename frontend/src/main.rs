@@ -123,7 +123,7 @@ fn App() -> Element {
                         const { listen } = window.__TAURI__.event;
                         console.log("Setting up clipboard event listener...");
                         const unlisten = await listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
-                            console.log("Clipboard update event received:", event);
+                            console.log("Clipboard update event received:", JSON.stringify(event));
                             try {
                                 let clipboardData = null;
                                 
@@ -147,23 +147,23 @@ fn App() -> Element {
                                                 // 使用 Command.create 创建命令
                                                 const cmd = Command.create('whoami');
                                                 const output = await cmd.execute();
-                                                console.log("whoami output:", output);
+                                                console.log("whoami output:", JSON.stringify(output));
                                                 if (output.code === 0 && output.stdout) {
                                                     username = output.stdout.trim();
                                                     console.log("Got username:", username);
                                                 } else {
-                                                    console.log("whoami failed, code:", output.code, "stderr:", output.stderr);
+                                                    console.log("whoami failed, code: " + output.code + ", stderr: " + output.stderr);
                                                 }
                                             } catch (e) {
-                                                console.error("Failed to get username via shell:", e);
+                                                console.error("Failed to get username via shell: " + e);
                                             }
                                         }
                                         // 在移动平台（iOS/Android），shell 命令不支持，保持 'Unknown'
                                     } catch (e) {
-                                        console.log("Failed to get platform info:", e);
+                                        console.log("Failed to get platform info: " + e);
                                     }
                                 } catch (e) {
-                                    console.log("Failed to get system info, using defaults:", e);
+                                    console.log("Failed to get system info, using defaults: " + e);
                                     device = navigator.platform || 'Unknown';
                                     username = 'Unknown';
                                 }
@@ -193,13 +193,13 @@ fn App() -> Element {
                                             username: username,
                                             size: size
                                         };
-                                        console.log("Sending image data to Dioxus, size:", size);
+                                        console.log("Sending image data to Dioxus, size: " + size);
                                         // dioxus.send() 会自动序列化对象
                                         dioxus.send(clipboardData);
                                         return; // 如果成功读取图片，就不读取文本了
                                     }
                                 } catch (imageError) {
-                                    console.log("No image in clipboard, trying text:", imageError);
+                                    console.log("No image in clipboard, trying text: " + imageError);
                                 }
                                 
                                 // 如果没有图片，尝试读取文本
@@ -217,15 +217,15 @@ fn App() -> Element {
                                             username: username,
                                             size: size
                                         };
-                                        console.log("Sending clipboard data to Dioxus:", clipboardData);
+                                        console.log("Sending clipboard data to Dioxus:", JSON.stringify(clipboardData));
                                         // dioxus.send() 会自动序列化对象
                                         dioxus.send(clipboardData);
                                     }
                                 } catch (textError) {
-                                    console.error("Failed to read clipboard text: " + textError);
+                                        console.error("Failed to read clipboard text: " + String(textError));
                                 }
                             } catch (e) {
-                                console.error("Failed to read clipboard: " + e);
+                                        console.error("Failed to read clipboard: " + String(e));
                             }
                         });
                         console.log("Clipboard event listener set up successfully");
@@ -268,7 +268,7 @@ fn App() -> Element {
                                         username = 'Unknown';
                                     }
                                 } catch (e) {
-                                    console.log("Failed to get system info, using defaults:", e);
+                                    console.log("Failed to get system info, using defaults: " + e);
                                     device = navigator.platform || 'Unknown';
                                     username = 'Unknown';
                                 }
@@ -319,7 +319,7 @@ fn App() -> Element {
                                             username: username,
                                             size: size
                                         };
-                                        console.log("Clipboard data on focus:", clipboardData);
+                                        console.log("Clipboard data on focus:", JSON.stringify(clipboardData));
                                         // dioxus.send() 会自动序列化对象
                                         dioxus.send(clipboardData);
                                     }
