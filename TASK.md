@@ -34,6 +34,17 @@ TODO
 4. 在 cargo 编译(包括开发环境和 CI 环境) 之前自动调用这个工具生成所有平台的 icon 到合适的位置, cargo 有这种 build script 机制
 5. 为了避免开发时由于 hot-reload 导致无限重启, 这个工具只在检测到关键 icon 缺失时才生成 icons
 
+
+## UI 框架
+### 引入 dioxus 官方的 component 作为 UI 组建
+https://github.com/DioxusLabs/components 
+
+### 支持支持暗黑模式, 并能够跟随系统自动变化
+
+### desktop 窗口
+窗口位置和大小在发生变化之后自动记录, 下次打开的时候使用关闭前的窗口位置和大小
+
+
 # 登录功能
 TODO
 
