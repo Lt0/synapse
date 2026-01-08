@@ -411,6 +411,7 @@ fn App() -> Element {
 #[component]
 fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, clipboard_history: Signal<Vec<ClipboardItem>>) -> Element {
     let original_idx = total_len - 1 - rev_index;
+    let mut show_modal = use_signal(|| false);
     let toast = use_toast();
     // 格式化时间（简单的格式化）
     let time_str = item.timestamp.map(|ts| {
@@ -559,17 +560,83 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
                 line.contains("export ")
             });
             
+            // 限制文本显示：最多显示 10 行，或最多 1500 个字符
+            const MAX_LINES: usize = 10;
+            const MAX_CHARS: usize = 1500;
+            let lines: Vec<&str> = item.content.lines().collect();
+            let (display_content, is_truncated) = if lines.len() > MAX_LINES {
+                // 如果行数超过限制，截断行数
+                let truncated: String = lines.iter().take(MAX_LINES).map(|s| *s).collect::<Vec<_>>().join("\n");
+                (truncated, true)
+            } else if item.content.len() > MAX_CHARS {
+                // 如果字符数超过限制，截断字符
+                let truncated: String = item.content.chars().take(MAX_CHARS).collect();
+                (truncated, true)
+            } else {
+                (item.content.clone(), false)
+            };
+            
             rsx! {
                 div {
                     class: if is_code { "history-item-content history-item-code" } else { "history-item-content" },
+                    style: "position: relative;",
                     pre {
                         style: if is_code { "margin: 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace; white-space: pre-wrap; word-wrap: break-word;" } else { "margin: 0; white-space: pre-wrap; word-wrap: break-word;" },
-                        "{item.content}"
+                        "{display_content}"
+                    }
+                    if is_truncated {
+                        div {
+                            class: "text-truncate-notice",
+                            "内容已截断"
+                        }
                     }
                 }
             }
         }
     };
+    
+    // 判断是否需要显示查看按钮
+    let should_show_view = {
+        if item.item_type == "image" {
+            true
+        } else if item.item_type == "text" || item.item_type == "html" {
+            const MAX_LINES: usize = 10;
+            const MAX_CHARS: usize = 1500;
+            let lines: Vec<&str> = item.content.lines().collect();
+            lines.len() > MAX_LINES || item.content.len() > MAX_CHARS
+        } else {
+            false
+        }
+    };
+    
+    // 准备弹窗内容
+    let modal_title = if item.item_type == "image" { "查看图片" } else { "查看完整内容" };
+    let view_button_text = if item.item_type == "image" { "查看" } else { "查看完整内容" };
+    let image_mime = item.mime_type.clone().unwrap_or_else(|| "image/png".to_string());
+    let image_src = if item.item_type == "image" {
+        format!("data:{};base64,{}", image_mime, item.content)
+    } else {
+        String::new()
+    };
+    
+    // 检测是否为代码（用于弹窗中的文本显示）
+    let is_code_for_modal = item.content.lines().any(|line| {
+        line.contains("cd ") || 
+        line.contains("npm ") || 
+        line.contains("npx ") ||
+        line.contains("git ") ||
+        line.contains("sudo ") ||
+        line.contains("curl ") ||
+        line.contains("wget ") ||
+        (line.contains("$") && line.contains(" ")) ||
+        line.starts_with("#") ||
+        line.starts_with("//") ||
+        line.contains("function ") ||
+        line.contains("const ") ||
+        line.contains("let ") ||
+        line.contains("import ") ||
+        line.contains("export ")
+    });
     
     rsx! {
         div {
@@ -591,6 +658,16 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
             // 操作按钮
             div {
                 class: "history-item-actions",
+                // 查看按钮：文本类型且被截断时，或图片类型时显示
+                if should_show_view {
+                    button {
+                        class: "action-button action-button-view",
+                        onclick: move |_| {
+                            show_modal.set(true);
+                        },
+                        "{view_button_text}"
+                    }
+                }
                 button {
                     class: "action-button action-button-copy",
                     onclick: on_copy,
@@ -617,6 +694,55 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
                         });
                     },
                     "删除"
+                }
+            }
+            // 弹窗：显示完整内容
+            if show_modal.read().clone() {
+                div {
+                    class: "modal-overlay",
+                    onclick: move |_| {
+                        show_modal.set(false);
+                    },
+                    div {
+                        class: "modal-content",
+                        onclick: |e| {
+                            e.stop_propagation();
+                        },
+                        div {
+                            class: "modal-header",
+                            h3 {
+                                "{modal_title}"
+                            }
+                            button {
+                                class: "modal-close",
+                                onclick: move |_| {
+                                    show_modal.set(false);
+                                },
+                                "×"
+                            }
+                        }
+                        div {
+                            class: "modal-body",
+                            if item.item_type == "image" {
+                                img {
+                                    src: "{image_src}",
+                                    style: "max-width: 100%; max-height: 80vh; height: auto; border-radius: 4px;"
+                                }
+                            } else {
+                                if item.item_type == "html" {
+                                    div {
+                                        class: "modal-html-content",
+                                        dangerous_inner_html: "{item.content}"
+                                    }
+                                } else {
+                                    pre {
+                                        style: if is_code_for_modal { "margin: 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace; white-space: pre-wrap; word-wrap: break-word; max-height: 70vh; overflow-y: auto;" } else { "margin: 0; white-space: pre-wrap; word-wrap: break-word; max-height: 70vh; overflow-y: auto;" },
+                                        "{item.content}"
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
