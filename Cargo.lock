@@ -2141,6 +2141,7 @@ dependencies = [
  "console_error_panic_hook",
  "dioxus",
  "dioxus-logger",
+ "serde",
  "serde_json",
 ]
 

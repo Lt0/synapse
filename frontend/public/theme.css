@@ -154,3 +154,46 @@ body {
   margin-top: 50px;
   color: rgb(var(--muted-foreground));
 }
+
+/* HTML 内容样式 - 保留原始格式 */
+.history-item-html {
+  /* 允许 HTML 内容保持原始样式 */
+  overflow-x: auto;
+}
+
+.history-item-html * {
+  max-width: 100%;
+}
+
+/* 代码内容样式 */
+.history-item-code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  background: rgb(var(--card));
+}
+
+.history-item-code pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+}
+
+/* 图片内容样式 */
+.history-item-image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.history-item-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
