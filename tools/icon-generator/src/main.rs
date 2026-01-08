@@ -53,7 +53,8 @@ fn main() -> Result<()> {
     generate_windows_icons(&args.macos_icon_svg, &args.output_dir)?;
     generate_macos_icons(&args.macos_icon_svg, &args.output_dir)?;
     generate_ios_icons(&args.macos_icon_svg, &args.output_dir)?;
-    generate_tray_icon(&args.macos_icon_svg, &args.output_dir)?;
+    // Tray icons: macOS uses transparent logo.svg with white lines, others use colored version
+    generate_tray_icon(&args.logo_svg, &args.macos_icon_svg, &args.output_dir)?;
 
     // Android 使用 logo.svg 作为前景（透明背景），背景使用深色底色
     // 支持 Android 自适应图标系统
@@ -107,6 +108,100 @@ fn render_svg_to_png(svg_path: &Path, width: u32, height: u32) -> Result<RgbaIma
     .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer"))?;
 
     Ok(img)
+}
+
+/// Apply morphological dilation to thicken lines in the image
+fn dilate_image(img: &RgbaImage, radius: u32) -> RgbaImage {
+    let width = img.width();
+    let height = img.height();
+    let mut result = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(width, height);
+    
+    // For each pixel in the result
+    for y in 0..height {
+        for x in 0..width {
+            let mut max_alpha = 0u8;
+            
+            // Check all pixels within radius
+            for dy in -(radius as i32)..=(radius as i32) {
+                for dx in -(radius as i32)..=(radius as i32) {
+                    let nx = x as i32 + dx;
+                    let ny = y as i32 + dy;
+                    
+                    // Check bounds
+                    if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                        let pixel = img.get_pixel(nx as u32, ny as u32);
+                        if pixel[3] > max_alpha {
+                            max_alpha = pixel[3];
+                        }
+                    }
+                }
+            }
+            
+            // Set pixel to white with the maximum alpha found in the neighborhood
+            if max_alpha > 0 {
+                result.put_pixel(x, y, Rgba([255, 255, 255, max_alpha]));
+            } else {
+                result.put_pixel(x, y, Rgba([0, 0, 0, 0])); // Transparent
+            }
+        }
+    }
+    
+    result
+}
+
+/// Render SVG to PNG with all colored pixels converted to white and thicker strokes (for macOS tray icons)
+/// Uses morphological dilation to thicken lines after rendering
+fn render_svg_to_white_png(svg_path: &Path, width: u32, height: u32) -> Result<RgbaImage> {
+    // First render normally at target size
+    let svg_data = fs::read(svg_path)
+        .with_context(|| format!("Failed to read SVG file: {:?}", svg_path))?;
+    
+    let opt = usvg::Options::default();
+    let tree = usvg::Tree::from_data(&svg_data, &opt)
+        .with_context(|| format!("Failed to parse SVG: {:?}", svg_path))?;
+
+    let mut pixmap = Pixmap::new(width, height)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create pixmap"))?;
+
+    let svg_size = tree.size();
+    let scale_x = width as f32 / svg_size.width();
+    let scale_y = height as f32 / svg_size.height();
+    let scale = scale_x.min(scale_y);
+
+    let scaled_width = (svg_size.width() * scale) as u32;
+    let scaled_height = (svg_size.height() * scale) as u32;
+
+    // Fill with transparent background
+    pixmap.fill(resvg::tiny_skia::Color::TRANSPARENT);
+
+    // Calculate transform to center the scaled SVG
+    let dx = (width - scaled_width) as f32 / 2.0;
+    let dy = (height - scaled_height) as f32 / 2.0;
+    let transform = Transform::from_scale(scale, scale).post_translate(dx, dy);
+
+    resvg::render(&tree, transform, &mut pixmap.as_mut());
+
+    // Convert to RgbaImage
+    let mut img = ImageBuffer::<Rgba<u8>, _>::from_raw(
+        pixmap.width(),
+        pixmap.height(),
+        pixmap.data().to_vec(),
+    )
+    .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer"))?;
+
+    // Convert all non-transparent pixels to white, preserving alpha channel
+    for pixel in img.pixels_mut() {
+        if pixel[3] > 0 {  // If alpha > 0 (not fully transparent)
+            *pixel = Rgba([255, 255, 255, pixel[3]]);  // Set RGB to white, keep alpha
+        }
+    }
+
+    // Apply dilation to thicken the lines
+    // For a 32x32 tray icon, use a smaller radius for subtle thickening
+    let dilation_radius = if width <= 32 { 1 } else { 1 };
+    let thickened = dilate_image(&img, dilation_radius);
+
+    Ok(thickened)
 }
 
 fn save_png(img: &RgbaImage, path: &Path) -> Result<()> {
@@ -299,10 +394,22 @@ fn generate_ios_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn generate_tray_icon(svg_path: &Path, output_dir: &Path) -> Result<()> {
-    println!("  Generating tray icon...");
-    let img = render_svg_to_png(svg_path, 32, 32)?;
+fn generate_tray_icon(logo_svg: &Path, macos_icon_svg: &Path, output_dir: &Path) -> Result<()> {
+    println!("  Generating tray icons...");
+    
+    // Generate colored tray icon for Windows/Linux
+    // Windows and Linux typically use colored icons in the system tray
+    // Use the full icon with background for better visibility
+    let img = render_svg_to_png(macos_icon_svg, 32, 32)?;
     save_png(&img, &output_dir.join("tray-icon.png"))?;
+    
+    // Generate pure white tray icon for macOS
+    // macOS menu bar icons should be monochrome (white) template images
+    // Use transparent logo.svg (no background) with white lines and thicker strokes
+    // The system automatically adjusts them for light/dark menu bar backgrounds
+    let white_img = render_svg_to_white_png(logo_svg, 32, 32)?;
+    save_png(&white_img, &output_dir.join("tray-icon-macos.png"))?;
+    
     Ok(())
 }
 

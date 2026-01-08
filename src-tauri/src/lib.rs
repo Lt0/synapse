@@ -17,7 +17,14 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&show_i, &quit_i]).expect("failed to create menu");
 
             // 2. Build Tray Icon
-            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+            // macOS uses monochrome (white) template images for menu bar icons
+            // Other platforms (Windows/Linux) use colored icons
+            #[cfg(target_os = "macos")]
+            let tray_icon_bytes = include_bytes!("../icons/tray-icon-macos.png");
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon_bytes = include_bytes!("../icons/tray-icon.png");
+            
+            let tray_icon = tauri::image::Image::from_bytes(tray_icon_bytes)
                 .expect("failed to load tray icon");
 
             let _tray = TrayIconBuilder::new()

@@ -18,12 +18,39 @@ fn main() {
 
     // Ensure icons directory exists immediately to satisfy Cargo's initial scan
     let output_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("icons");
-    if !output_dir.exists() {
-        let _ = std::fs::create_dir_all(&output_dir);
-    }
+    let _ = std::fs::create_dir_all(&output_dir);
+    
+    // Ensure frontend/public directory exists
+    let frontend_assets_dir = workspace_root.join("frontend/public");
+    let _ = std::fs::create_dir_all(&frontend_assets_dir);
 
-    // Generate icons before building
+    // Check if critical files exist - if not, we MUST generate them before proc-macros run
+    let tray_icon = output_dir.join("tray-icon.png");
+    let tray_icon_macos = output_dir.join("tray-icon-macos.png");
+    let icon_32 = output_dir.join("32x32.png");
+    
+    // If any critical file is missing, force generation (skip optimization check)
+    let must_generate = !tray_icon.exists() || !tray_icon_macos.exists() || !icon_32.exists();
+    
+    // Generate icons before building (must happen before proc-macros check files)
+    if must_generate {
+        println!("cargo:warning=Critical icon files missing, forcing generation...");
+    }
     generate_icons();
+    
+    // Final check: if files still don't exist after generation, this is a critical error
+    if !tray_icon.exists() || !tray_icon_macos.exists() || !icon_32.exists() {
+        panic!(
+            "CRITICAL: Required icon files are missing after generation attempt!\n\
+            tray-icon.png: exists={}\n\
+            tray-icon-macos.png: exists={}\n\
+            32x32.png: exists={}\n\
+            Please check icon-generator output above.",
+            tray_icon.exists(),
+            tray_icon_macos.exists(),
+            icon_32.exists()
+        );
+    }
 
     // Build Tauri app
     tauri_build::build()
@@ -65,12 +92,29 @@ fn generate_icons() {
 
     println!("cargo:warning=Generating icons from SVG sources...");
 
-    // Optimization: Skip icon generation if target files already exist and are newer than source SVGs
+    // Ensure frontend/public directory exists
+    if let Err(e) = std::fs::create_dir_all(&frontend_assets_dir) {
+        eprintln!(
+            "cargo:warning=Failed to create frontend assets directory {:?}: {}",
+            frontend_assets_dir, e
+        );
+        eprintln!("cargo:warning=Continuing build anyway...");
+    }
+
+    // Check critical files - if any are missing, we MUST generate
     let tray_icon = output_dir.join("tray-icon.png");
+    let tray_icon_macos = output_dir.join("tray-icon-macos.png");
     let icon_32 = output_dir.join("32x32.png");
     let favicon = frontend_assets_dir.join("favicon.ico");
 
-    if tray_icon.exists() && icon_32.exists() && favicon.exists() {
+    // Check if all critical files exist and are up to date
+    let all_exist = tray_icon.exists() 
+        && tray_icon_macos.exists() 
+        && icon_32.exists() 
+        && favicon.exists();
+    
+    // Only skip generation if ALL files exist AND are newer than source SVGs
+    if all_exist {
         let tray_meta = std::fs::metadata(&tray_icon).ok();
         let logo_meta = std::fs::metadata(&logo_svg).ok();
         let macos_meta = std::fs::metadata(&macos_icon_svg).ok();
@@ -85,6 +129,9 @@ fn generate_icons() {
                 return;
             }
         }
+    } else {
+        // Some files are missing - we must generate
+        println!("cargo:warning=Some icon files are missing, generating all icons...");
     }
 
     // First, ensure icon-generator is built
@@ -124,12 +171,21 @@ fn generate_icons() {
                 Ok(output) if output.status.success() => {
                     // Verify that critical icon files were actually generated
                     let tray_icon = output_dir.join("tray-icon.png");
+                    let tray_icon_macos = output_dir.join("tray-icon-macos.png");
                     let icon_32 = output_dir.join("32x32.png");
 
-                    // Small delay to ensure file system has synced
-                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    // Wait longer to ensure file system has fully synced
+                    // This is critical because proc-macros may check files immediately after build.rs
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    
+                    // Double-check files exist after delay
+                    let mut retries = 5;
+                    while retries > 0 && (!tray_icon.exists() || !tray_icon_macos.exists() || !icon_32.exists()) {
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        retries -= 1;
+                    }
 
-                    if !tray_icon.exists() || !icon_32.exists() {
+                    if !tray_icon.exists() || !tray_icon_macos.exists() || !icon_32.exists() {
                         eprintln!(
                             "cargo:warning=Icon generation reported success but files are missing!"
                         );
@@ -138,6 +194,11 @@ fn generate_icons() {
                             "cargo:warning=Expected: {:?} (exists: {})",
                             tray_icon,
                             tray_icon.exists()
+                        );
+                        eprintln!(
+                            "cargo:warning=Expected: {:?} (exists: {})",
+                            tray_icon_macos,
+                            tray_icon_macos.exists()
                         );
                         eprintln!(
                             "cargo:warning=Expected: {:?} (exists: {})",
