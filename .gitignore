@@ -1,2 +1,7 @@
 target
 .DS_Store
+src-tauri/icons
+frontend/assets/logo.svg
+frontend/assets/logo.png
+frontend/assets/favicon.ico
+

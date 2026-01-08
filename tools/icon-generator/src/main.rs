@@ -18,22 +18,33 @@ struct Args {
     #[arg(long, default_value = "VI/logo/macos-app-icon.svg")]
     macos_icon_svg: PathBuf,
 
-    /// Output directory for generated icons
+    /// Output directory for Tauri generated icons
     #[arg(long, default_value = "src-tauri/icons")]
     output_dir: PathBuf,
+
+    /// Output directory for Frontend assets
+    #[arg(long, default_value = "frontend/assets")]
+    frontend_assets_dir: PathBuf,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Ensure output directory exists
+    // Ensure output directories exist
     fs::create_dir_all(&args.output_dir)
         .with_context(|| format!("Failed to create output directory: {:?}", args.output_dir))?;
+    fs::create_dir_all(&args.frontend_assets_dir).with_context(|| {
+        format!(
+            "Failed to create frontend assets directory: {:?}",
+            args.frontend_assets_dir
+        )
+    })?;
 
     println!("Generating icons from SVG sources...");
     println!("  Logo SVG: {:?}", args.logo_svg);
     println!("  macOS Icon SVG: {:?}", args.macos_icon_svg);
-    println!("  Output directory: {:?}", args.output_dir);
+    println!("  Tauri output directory: {:?}", args.output_dir);
+    println!("  Frontend output directory: {:?}", args.frontend_assets_dir);
 
     // Generate icons for different platforms
     // 桌面版 (Windows/Linux/macOS) 和 iOS 使用带背景板的 macos-app-icon.svg
@@ -47,6 +58,9 @@ fn main() -> Result<()> {
     // Android 使用 logo.svg 作为前景（透明背景），背景使用深色底色
     // 支持 Android 自适应图标系统
     generate_android_icons(&args.logo_svg, &args.output_dir)?;
+
+    // 为前端生成图标
+    generate_frontend_icons(&args.logo_svg, &args.frontend_assets_dir)?;
 
     println!("✓ All icons generated successfully!");
 
@@ -105,7 +119,6 @@ fn save_png(img: &RgbaImage, path: &Path) -> Result<()> {
 
 fn generate_linux_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
     println!("  Generating Linux icons...");
-    println!("    Using macos-app-icon.svg (with background plate)");
     let sizes = [32, 64, 128, 256];
     for size in sizes {
         let img = render_svg_to_png(svg_path, size, size)?;
@@ -120,7 +133,6 @@ fn generate_linux_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
 
 fn generate_windows_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
     println!("  Generating Windows icons...");
-    println!("    Using macos-app-icon.svg (with background plate)");
     // Windows .ico file needs multiple sizes
     let sizes = [16, 32, 48, 64, 128, 256];
     let mut icon_dir = ico::IconDir::new(ico::ResourceType::Icon);
@@ -157,17 +169,14 @@ fn generate_windows_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
 
 fn generate_macos_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
     println!("  Generating macOS icons...");
-    println!("    Using macos-app-icon.svg (follows Apple HIG)");
 
     // macOS .icns generation using iconutil
-    // This is the most reliable way to get correct transparency and rounded corners
     let iconset_dir = std::env::temp_dir().join("app.iconset");
     if iconset_dir.exists() {
         let _ = fs::remove_dir_all(&iconset_dir);
     }
     fs::create_dir_all(&iconset_dir)?;
 
-    // Define the required sizes for macOS .iconset
     let sizes = [
         ("icon_16x16.png", 16),
         ("icon_16x16@2x.png", 32),
@@ -186,7 +195,6 @@ fn generate_macos_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
         save_png(&img, &iconset_dir.join(name))?;
     }
 
-    // Try to use iconutil
     let icns_path = output_dir.join("icon.icns");
     let status = std::process::Command::new("iconutil")
         .arg("-c")
@@ -202,13 +210,11 @@ fn generate_macos_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
         }
         _ => {
             println!("    Warning: iconutil failed or not available. Using PNG fallback.");
-            // On non-macOS or if iconutil fails, just copy the 512x512 PNG as icon.png
             let img = render_svg_to_png(svg_path, 512, 512)?;
             save_png(&img, &output_dir.join("icon.png"))?;
         }
     }
 
-    // Clean up temp directory
     let _ = fs::remove_dir_all(&iconset_dir);
 
     Ok(())
@@ -216,14 +222,10 @@ fn generate_macos_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
 
 fn generate_android_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
     println!("  Generating Android icons...");
-    println!("    Using logo.svg as foreground (transparent background)");
-    println!("    Background color: #1C1C1E (dark base)");
 
     let android_dir = output_dir.join("android");
     fs::create_dir_all(&android_dir)?;
 
-    // Android density buckets for adaptive icons
-    // 根据 Android 自适应图标系统要求，前景和背景分离
     let densities = [
         ("mdpi", 48),
         ("hdpi", 72),
@@ -236,17 +238,12 @@ fn generate_android_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
         let mipmap_dir = android_dir.join(format!("mipmap-{}", density));
         fs::create_dir_all(&mipmap_dir)?;
 
-        // Generate foreground: logo only with transparent background
-        // 前景：仅包含 logo，透明背景，支持 Android 自适应图标系统
         let img = render_svg_to_png(svg_path, size, size)?;
         save_png(&img, &mipmap_dir.join("ic_launcher_foreground.png"))?;
-        // Also save as regular launcher icons (for compatibility)
         save_png(&img, &mipmap_dir.join("ic_launcher.png"))?;
         save_png(&img, &mipmap_dir.join("ic_launcher_round.png"))?;
     }
 
-    // Generate adaptive icon XML files
-    // 确保 Android 自适应图标配置正确：前景（logo，透明背景）+ 背景（深色底色）
     let anydpi_dir = android_dir.join("mipmap-anydpi-v26");
     fs::create_dir_all(&anydpi_dir)?;
     let xml_content = r#"<?xml version="1.0" encoding="utf-8"?>
@@ -256,8 +253,6 @@ fn generate_android_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
 </adaptive-icon>"#;
     fs::write(anydpi_dir.join("ic_launcher.xml"), xml_content)?;
 
-    // 确保背景颜色为深色底色 #1C1C1E
-    // 根据 TASK.md 要求：Android 背景使用深色底色
     let values_dir = android_dir.join("values");
     fs::create_dir_all(&values_dir)?;
     let bg_xml = r#"<?xml version="1.0" encoding="utf-8"?>
@@ -271,12 +266,10 @@ fn generate_android_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
 
 fn generate_ios_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
     println!("  Generating iOS icons...");
-    println!("    Using macos-app-icon.svg (follows Apple HIG with dark gradient plate)");
 
     let ios_dir = output_dir.join("ios");
     fs::create_dir_all(&ios_dir)?;
 
-    // iOS App Icon sizes
     let ios_sizes = [
         ("AppIcon-20x20@1x.png", 20),
         ("AppIcon-20x20@2x.png", 40),
@@ -308,10 +301,36 @@ fn generate_ios_icons(svg_path: &Path, output_dir: &Path) -> Result<()> {
 
 fn generate_tray_icon(svg_path: &Path, output_dir: &Path) -> Result<()> {
     println!("  Generating tray icon...");
-    println!("    Using macos-app-icon.svg (with background plate)");
-    // Tray icons are typically 16x16 or 22x22, but we'll use 32x32 for better quality
-    // 系统托盘图标使用带背景板的版本，确保在各种背景下都清晰可见
     let img = render_svg_to_png(svg_path, 32, 32)?;
     save_png(&img, &output_dir.join("tray-icon.png"))?;
+    Ok(())
+}
+
+fn generate_frontend_icons(svg_path: &Path, assets_dir: &Path) -> Result<()> {
+    println!("  Generating frontend icons...");
+
+    // 1. favicon.ico
+    let mut ico_builder = ico::IconDir::new(ico::ResourceType::Icon);
+    let sizes = [16, 32, 48];
+    for size in sizes {
+        let img = render_svg_to_png(svg_path, size, size)?;
+        let temp_png = std::env::temp_dir().join(format!("favicon_{}x{}.png", size, size));
+        save_png(&img, &temp_png)?;
+        let file = std::fs::File::open(&temp_png)?;
+        let ico_image = ico::IconImage::read_png(file)?;
+        ico_builder.add_entry(ico::IconDirEntry::encode(&ico_image)?);
+        let _ = fs::remove_file(&temp_png);
+    }
+    let ico_path = assets_dir.join("favicon.ico");
+    let mut file = fs::File::create(&ico_path)?;
+    ico_builder.write(&mut file)?;
+
+    // 2. logo.png (used for og:image etc)
+    let logo_png = render_svg_to_png(svg_path, 512, 512)?;
+    save_png(&logo_png, &assets_dir.join("logo.png"))?;
+
+    // 3. logo.svg
+    fs::copy(svg_path, assets_dir.join("logo.svg"))?;
+
     Ok(())
 }

@@ -20,6 +20,7 @@ fn generate_icons() {
     let logo_svg = workspace_root.join("VI/logo/logo.svg");
     let macos_icon_svg = workspace_root.join("VI/logo/macos-app-icon.svg");
     let output_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("icons");
+    let frontend_assets_dir = workspace_root.join("frontend/assets");
 
     // Check if source files exist
     if !logo_svg.exists() {
@@ -78,6 +79,8 @@ fn generate_icons() {
                 .arg(&macos_icon_svg)
                 .arg("--output-dir")
                 .arg(&output_dir)
+                .arg("--frontend-assets-dir")
+                .arg(&frontend_assets_dir)
                 .current_dir(workspace_root)
                 .output();
 
