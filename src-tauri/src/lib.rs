@@ -11,6 +11,8 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 1. Create Tray Menu
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).expect("failed to create quit item");

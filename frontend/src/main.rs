@@ -638,6 +638,176 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
         line.contains("export ")
     });
     
+    // 生成文件名：时间_设备_用户.扩展名
+    let filename = {
+        let timestamp_str = item.timestamp.map(|ts| {
+            let seconds = ts / 1000;
+            let date = std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds as u64);
+            let datetime = chrono::DateTime::<chrono::Local>::from(date);
+            datetime.format("%Y%m%d_%H%M%S").to_string()
+        }).unwrap_or_else(|| "unknown_time".to_string());
+        
+        let device_str = item.device.as_ref()
+            .map(|d| d.replace(" ", "_").replace("/", "_").replace("\\", "_"))
+            .unwrap_or_else(|| "unknown_device".to_string());
+        
+        let username_str = item.username.as_ref()
+            .map(|u| u.replace(" ", "_").replace("/", "_").replace("\\", "_").trim().to_string())
+            .unwrap_or_else(|| "unknown_user".to_string());
+        
+        let extension = match item.item_type.as_str() {
+            "image" => {
+                // 从 mime type 获取扩展名
+                match image_mime.as_str() {
+                    "image/png" => "png",
+                    "image/jpeg" | "image/jpg" => "jpg",
+                    "image/gif" => "gif",
+                    "image/webp" => "webp",
+                    "image/svg+xml" => "svg",
+                    _ => "png"
+                }
+            }
+            "html" => "html",
+            "file" => {
+                // 如果有 mime type，尝试从 mime type 推断扩展名
+                item.mime_type.as_ref()
+                    .and_then(|m| {
+                        match m.as_str() {
+                            "text/plain" => Some("txt"),
+                            "text/html" => Some("html"),
+                            "application/json" => Some("json"),
+                            _ => None
+                        }
+                    })
+                    .unwrap_or("bin")
+            }
+            _ => "txt"
+        };
+        
+        format!("{}_{}_{}.{}", timestamp_str, device_str, username_str, extension)
+    };
+    
+    // 下载功能
+    let download_content = item.content.clone();
+    let download_type = item.item_type.clone();
+    let download_filename = filename.clone();
+    let download_mime = item.mime_type.clone();
+    let toast_for_download = toast;
+    let on_download = move |_| {
+        let content = download_content.clone();
+        let item_type = download_type.clone();
+        let filename = download_filename.clone();
+        let mime = download_mime.clone();
+        let toast_dl = toast_for_download;
+        spawn(async move {
+            let result = eval(&format!(
+                r#"
+                (async function() {{
+                    try {{
+                        const {{ save }} = window.__TAURI__.dialog;
+                        const {{ writeFile, writeTextFile }} = window.__TAURI__.fs;
+                        
+                        let filters = [];
+                        let defaultPath = {};
+                        
+                        if ({}) {{
+                            // 图片类型
+                            const mimeType = {};
+                            let ext = 'png';
+                            if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') ext = 'jpg';
+                            else if (mimeType === 'image/gif') ext = 'gif';
+                            else if (mimeType === 'image/webp') ext = 'webp';
+                            else if (mimeType === 'image/svg+xml') ext = 'svg';
+                            
+                            filters = [{{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }}];
+                            defaultPath = {};
+                            
+                            // 将 base64 转换为 Uint8Array
+                            // base64 数据可能包含 data:image/png;base64, 前缀，需要移除
+                            let base64Data = {};
+                            if (base64Data.startsWith('data:')) {{
+                                base64Data = base64Data.split(',')[1];
+                            }}
+                            const binaryString = atob(base64Data);
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {{
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }}
+                            
+                            const filePath = await save({{
+                                filters: filters,
+                                defaultPath: defaultPath
+                            }});
+                            
+                            if (filePath) {{
+                                try {{
+                                    await writeFile(filePath, bytes);
+                                    return {{ success: true, message: '图片已保存' }};
+                                }} catch (writeError) {{
+                                    return {{ success: false, message: '写入文件失败: ' + writeError.message }};
+                                }}
+                            }} else {{
+                                return {{ success: false, message: '用户取消了保存操作' }};
+                            }}
+                        }} else {{
+                            // 文本类型
+                            filters = [{{ name: 'Text Files', extensions: ['txt'] }}];
+                            if ({}) {{
+                                filters = [{{ name: 'HTML Files', extensions: ['html'] }}];
+                            }}
+                            defaultPath = {};
+                            
+                            const filePath = await save({{
+                                filters: filters,
+                                defaultPath: defaultPath
+                            }});
+                            
+                            if (filePath) {{
+                                try {{
+                                    const textContent = {};
+                                    await writeTextFile(filePath, textContent);
+                                    return {{ success: true, message: '文件已保存' }};
+                                }} catch (writeError) {{
+                                    return {{ success: false, message: '写入文件失败: ' + writeError.message }};
+                                }}
+                            }} else {{
+                                return {{ success: false, message: '用户取消了保存操作' }};
+                            }}
+                        }}
+                    }} catch (e) {{
+                        return {{ success: false, message: '保存失败: ' + e.message }};
+                    }}
+                }})()
+                "#,
+                serde_json::to_string(&filename).unwrap_or_default(),
+                if item_type == "image" { "true" } else { "false" },
+                serde_json::to_string(&mime.unwrap_or_else(|| "image/png".to_string())).unwrap_or_default(),
+                serde_json::to_string(&filename).unwrap_or_default(),
+                serde_json::to_string(&content).unwrap_or_default(),
+                if item_type == "html" { "true" } else { "false" },
+                serde_json::to_string(&filename).unwrap_or_default(),
+                serde_json::to_string(&content).unwrap_or_default()
+            )).await;
+            
+            if let Ok(result_value) = result {
+                if let Ok(result_obj) = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(result_value) {
+                    if let Some(success) = result_obj.get("success").and_then(|v| v.as_bool()) {
+                        if let Some(message) = result_obj.get("message").and_then(|v| v.as_str()) {
+                            let title = if success { "下载成功" } else { "下载失败" };
+                            let msg = message.to_string();
+                            let options = dioxus_primitives::toast::ToastOptions::default().description(msg);
+                            if success {
+                                toast_dl.success(title.to_string(), options);
+                            } else {
+                                toast_dl.error(title.to_string(), options);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    };
+    
     rsx! {
         div {
             class: "history-item",
@@ -655,24 +825,10 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
             }
             // 内容区域
             {content_area}
-            // 操作按钮
+            // 操作按钮 - 使用 space-between 布局
             div {
                 class: "history-item-actions",
-                // 查看按钮：文本类型且被截断时，或图片类型时显示
-                if should_show_view {
-                    button {
-                        class: "action-button action-button-view",
-                        onclick: move |_| {
-                            show_modal.set(true);
-                        },
-                        "{view_button_text}"
-                    }
-                }
-                button {
-                    class: "action-button action-button-copy",
-                    onclick: on_copy,
-                    "复制"
-                }
+                // 左侧：删除按钮
                 button {
                     class: "action-button action-button-delete",
                     onclick: move |_| {
@@ -694,6 +850,30 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
                         });
                     },
                     "删除"
+                }
+                // 右侧：查看、下载、复制按钮组
+                div {
+                    class: "history-item-actions-right",
+                    // 查看按钮：文本类型且被截断时，或图片类型时显示
+                    if should_show_view {
+                        button {
+                            class: "action-button action-button-view",
+                            onclick: move |_| {
+                                show_modal.set(true);
+                            },
+                            "{view_button_text}"
+                        }
+                    }
+                    button {
+                        class: "action-button action-button-download",
+                        onclick: on_download,
+                        "下载"
+                    }
+                    button {
+                        class: "action-button action-button-copy",
+                        onclick: on_copy,
+                        "复制"
+                    }
                 }
             }
             // 弹窗：显示完整内容
