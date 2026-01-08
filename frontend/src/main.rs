@@ -1,5 +1,5 @@
-use dioxus::prelude::*;
 use dioxus::document::eval;
+use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 
 fn main() {
@@ -16,17 +16,20 @@ fn App() -> Element {
     use_effect(move || {
         spawn(async move {
             // 1. Start monitoring (via eval to call Tauri plugin command)
-            let _ = eval(r#"
+            let _ = eval(
+                r#"
                 try {
                     console.log("Starting clipboard monitor...");
                     window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
                 } catch (e) {
                     console.error("Failed to start monitor: " + e);
                 }
-            "#);
+            "#,
+            );
 
             // 2. Listen for clipboard update events
-            let mut handler = eval(r#"
+            let mut handler = eval(
+                r#"
                 const { listen } = window.__TAURI__.event;
                 listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
                     console.log("Clipboard update detected");
@@ -39,7 +42,8 @@ fn App() -> Element {
                         console.error("Failed to read clipboard: " + e);
                     }
                 });
-            "#);
+            "#,
+            );
 
             while let Ok(msg) = handler.recv().await {
                 let text_val: serde_json::Value = msg;
@@ -56,7 +60,7 @@ fn App() -> Element {
     rsx! {
         div {
             style: "width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; background-color: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden;",
-            
+
             // Header
             header {
                 style: "width: 100%; padding: 20px; text-align: center; border-bottom: 1px solid #333; background: #222; display: flex; flex-direction: column; align-items: center;",
@@ -73,7 +77,7 @@ fn App() -> Element {
             main {
                 style: "flex: 1; width: 100%; max-width: 600px; padding: 20px; overflow-y: auto;",
                 if clipboard_history.read().is_empty() {
-                    div { 
+                    div {
                         style: "text-align: center; margin-top: 50px; color: #555;",
                         "Waiting for clipboard changes..."
                     }

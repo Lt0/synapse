@@ -1,0 +1,15 @@
+[package]
+name = "icon-generator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+resvg = "0.44"
+tiny-skia = "0.11"
+image = "0.25"
+ico = "0.3"
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+icns = "0.3"

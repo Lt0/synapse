@@ -19,6 +19,7 @@ TODO
 根据 logo.svg 生成 macos-app-icon.svg, 要求: 
 1. 遵循 Apple Human Interface Guidelines (HIG)
 2. 添加一个精致的深色渐变底盘
+3. mac 的 tray icon 满足 mac 的要求, 使用单色(白色) 图标, 保持和系统其它图标风格一致
 
 应用到 windows/linux/macOS/iOS tauri app 项目中, 包括 app icon, tray icon, 安装包 icon 等
 
@@ -26,7 +27,10 @@ TODO
 根据 logo.svg 分离出前景（Logo）和背景（深色底色），确保它支持 Android 的自适应系统
 应用到 android tauri app 项目中, 包括 app icon, tray icon, 安装包 icon等
 
-
+## Icon Generator
+把 logo 的生效做成编译时自动生成的效果:
+1. 用 rust 写一个工具, 用这个工具来根据 VI/logo/logo.svg 和 VI/logo/macos-app-icon.svg 来生成所有平台实际使用的 logo 到合适的位置, 包括各种尺寸要求等你能想到的需求
+2. 在 cargo 编译(包括开发环境和 CI 环境) 之前自动调用这个工具生成所有平台的 icon 到合适的位置, cargo 有这种 build script 机制
 
 # 登录功能
 TODO

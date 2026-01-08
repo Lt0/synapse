@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    http::{StatusCode, header, Uri},
+    http::{header, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::get,
     Router,
@@ -55,9 +55,8 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
 
 async fn index_handler() -> Response<Body> {
     match Assets::get("index.html") {
-        Some(content) => {
-            ([(header::CONTENT_TYPE, "text/html")], content.data).into_response()
-        }
-        None => "Frontend not found in release/web/public. Did you run 'dx build --release'?".into_response(),
+        Some(content) => ([(header::CONTENT_TYPE, "text/html")], content.data).into_response(),
+        None => "Frontend not found in release/web/public. Did you run 'dx build --release'?"
+            .into_response(),
     }
 }
