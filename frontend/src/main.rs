@@ -103,17 +103,42 @@ fn App() -> Element {
                         const unlisten = await listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
                             console.log("Clipboard update event received:", event);
                             try {
-                                // 直接使用 Tauri API 读取剪贴板（不需要用户交互）
-                                const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
-                                console.log("Read clipboard text:", text);
-                                if (text && text.trim() !== '') {
-                                    const clipboardData = {
-                                        type: 'text',
-                                        content: text,
-                                        mimeType: 'text/plain'
-                                    };
-                                    console.log("Sending clipboard data to Dioxus:", clipboardData);
-                                    dioxus.send(clipboardData);
+                                let clipboardData = null;
+                                
+                                // 优先尝试读取图片（使用 base64 API）
+                                try {
+                                    const base64Image = await window.__TAURI__.core.invoke('plugin:clipboard|read_image_base64');
+                                    if (base64Image && base64Image.trim() !== '') {
+                                        clipboardData = {
+                                            type: 'image',
+                                            content: base64Image,
+                                            mimeType: 'image/png'
+                                        };
+                                        console.log("Sending image data to Dioxus, size:", base64Image.length);
+                                        // dioxus.send() 会自动序列化对象
+                                        dioxus.send(clipboardData);
+                                        return; // 如果成功读取图片，就不读取文本了
+                                    }
+                                } catch (imageError) {
+                                    console.log("No image in clipboard, trying text:", imageError);
+                                }
+                                
+                                // 如果没有图片，尝试读取文本
+                                try {
+                                    const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
+                                    console.log("Read clipboard text:", text);
+                                    if (text && text.trim() !== '') {
+                                        clipboardData = {
+                                            type: 'text',
+                                            content: text,
+                                            mimeType: 'text/plain'
+                                        };
+                                        console.log("Sending clipboard data to Dioxus:", clipboardData);
+                                        // dioxus.send() 会自动序列化对象
+                                        dioxus.send(clipboardData);
+                                    }
+                                } catch (textError) {
+                                    console.error("Failed to read clipboard text: " + textError);
                                 }
                             } catch (e) {
                                 console.error("Failed to read clipboard: " + e);
@@ -139,15 +164,41 @@ fn App() -> Element {
                         currentWindow.onFocus(async () => {
                             console.log("Window gained focus, checking clipboard...");
                             try {
-                                const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
-                                if (text && text.trim() !== '') {
-                                    const clipboardData = {
-                                        type: 'text',
-                                        content: text,
-                                        mimeType: 'text/plain'
-                                    };
-                                    console.log("Clipboard data on focus:", clipboardData);
-                                    dioxus.send(clipboardData);
+                                let clipboardData = null;
+                                
+                                // 优先尝试读取图片（使用 base64 API）
+                                try {
+                                    const base64Image = await window.__TAURI__.core.invoke('plugin:clipboard|read_image_base64');
+                                    if (base64Image && base64Image.trim() !== '') {
+                                        clipboardData = {
+                                            type: 'image',
+                                            content: base64Image,
+                                            mimeType: 'image/png'
+                                        };
+                                        console.log("Clipboard image data on focus");
+                                        // dioxus.send() 会自动序列化对象
+                                        dioxus.send(clipboardData);
+                                        return;
+                                    }
+                                } catch (imageError) {
+                                    console.log("No image in clipboard on focus, trying text");
+                                }
+                                
+                                // 如果没有图片，尝试读取文本
+                                try {
+                                    const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
+                                    if (text && text.trim() !== '') {
+                                        clipboardData = {
+                                            type: 'text',
+                                            content: text,
+                                            mimeType: 'text/plain'
+                                        };
+                                        console.log("Clipboard data on focus:", clipboardData);
+                                        // dioxus.send() 会自动序列化对象
+                                        dioxus.send(clipboardData);
+                                    }
+                                } catch (textError) {
+                                    console.error("Failed to read clipboard on focus: " + textError);
                                 }
                             } catch (e) {
                                 console.error("Failed to read clipboard on focus: " + e);
@@ -161,10 +212,20 @@ fn App() -> Element {
             );
 
             while let Ok(msg) = handler.recv().await {
-                if let Ok(item) = serde_json::from_value::<ClipboardItem>(msg) {
-                    let content = item.content.trim();
-                    if !content.is_empty() {
-                        clipboard_history.write().push(item);
+                match serde_json::from_value::<ClipboardItem>(msg) {
+                    Ok(item) => {
+                        let content = item.content.trim();
+                        if !content.is_empty() {
+                            clipboard_history.write().push(item);
+                        }
+                    }
+                    Err(e) => {
+                        // 如果解析失败，记录警告（使用 console.warn 在浏览器中显示）
+                        let error_msg = format!("Failed to parse clipboard item: {:?}", e);
+                        let _ = eval(&format!(
+                            r#"console.warn("{}");"#,
+                            error_msg.replace('"', "\\\"")
+                        ));
                     }
                 }
             }

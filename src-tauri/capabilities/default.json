@@ -9,6 +9,8 @@
     "core:default",
     "clipboard:allow-read-text",
     "clipboard:allow-write-text",
+    "clipboard:allow-read-image-base64",
+    "clipboard:allow-write-image-base64",
     "clipboard:allow-start-monitor",
     "clipboard:allow-stop-monitor"
   ]
