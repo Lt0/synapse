@@ -2,8 +2,22 @@ use std::path::Path;
 use std::process::Command;
 
 fn main() {
-    // Ensure assets directory exists immediately
-    let output_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let logo_svg = workspace_root.join("VI/logo/logo.svg");
+    let macos_icon_svg = workspace_root.join("VI/logo/macos-app-icon.svg");
+
+    // Tell Cargo to rerun this script if the source SVGs or the generator itself change
+    println!("cargo:rerun-if-changed={}", logo_svg.display());
+    println!("cargo:rerun-if-changed={}", macos_icon_svg.display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        workspace_root
+            .join("tools/icon-generator/src/main.rs")
+            .display()
+    );
+
+    // Ensure public directory exists immediately
+    let output_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("public");
     if !output_dir.exists() {
         let _ = std::fs::create_dir_all(&output_dir);
     }
@@ -16,7 +30,7 @@ fn generate_icons() {
     let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let logo_svg = workspace_root.join("VI/logo/logo.svg");
     let macos_icon_svg = workspace_root.join("VI/logo/macos-app-icon.svg");
-    let frontend_assets_dir = workspace_root.join("frontend/assets");
+    let frontend_assets_dir = workspace_root.join("frontend/public");
     let tauri_icons_dir = workspace_root.join("src-tauri/icons");
 
     // Check if source files exist
@@ -28,16 +42,37 @@ fn generate_icons() {
         return;
     }
 
-    // Ensure frontend assets directory exists
+    // Ensure frontend public directory exists
     if let Err(e) = std::fs::create_dir_all(&frontend_assets_dir) {
         eprintln!(
-            "cargo:warning=Failed to create frontend assets directory {:?}: {}",
+            "cargo:warning=Failed to create frontend public directory {:?}: {}",
             frontend_assets_dir, e
         );
         return;
     }
 
     println!("cargo:warning=Generating frontend icons from SVG sources...");
+
+    // Optimization: Skip icon generation if target files already exist and are newer than source SVGs
+    let favicon = frontend_assets_dir.join("favicon.ico");
+    let logo_png = frontend_assets_dir.join("logo.png");
+
+    if favicon.exists() && logo_png.exists() {
+        let favicon_meta = std::fs::metadata(&favicon).ok();
+        let logo_meta = std::fs::metadata(&logo_svg).ok();
+        let macos_meta = std::fs::metadata(&macos_icon_svg).ok();
+
+        if let (Some(f_time), Some(l_time), Some(m_time)) = (
+            favicon_meta.and_then(|m| m.modified().ok()),
+            logo_meta.and_then(|m| m.modified().ok()),
+            macos_meta.and_then(|m| m.modified().ok()),
+        ) {
+            if f_time > l_time && f_time > m_time {
+                println!("cargo:warning=✓ Frontend icons are up to date, skipping generation");
+                return;
+            }
+        }
+    }
 
     // First, ensure icon-generator is built
     let build_output = Command::new("cargo")

@@ -23,7 +23,7 @@ struct Args {
     output_dir: PathBuf,
 
     /// Output directory for Frontend assets
-    #[arg(long, default_value = "frontend/assets")]
+    #[arg(long, default_value = "frontend/public")]
     frontend_assets_dir: PathBuf,
 }
 
