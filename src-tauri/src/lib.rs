@@ -15,11 +15,11 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 0. Enable DevTools for debugging (in debug mode, auto-open; in release, use Cmd+Shift+M / Ctrl+Shift+M)
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(_window) = app.get_webview_window("main") {
                 #[cfg(debug_assertions)]
                 {
                     // 在开发模式下自动打开 DevTools
-                    let _ = window.open_devtools();
+                    let _ = _window.open_devtools();
                 }
             }
             

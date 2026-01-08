@@ -51,7 +51,15 @@ fn main() -> Result<()> {
     // 遵循 Apple HIG，包含精致的深色渐变底盘
     generate_linux_icons(&args.macos_icon_svg, &args.output_dir)?;
     generate_windows_icons(&args.macos_icon_svg, &args.output_dir)?;
-    generate_macos_icons(&args.macos_icon_svg, &args.output_dir)?;
+    // Only generate macOS icons if iconutil is available (typically only on macOS)
+    // On other platforms, this will be skipped gracefully
+    if std::process::Command::new("iconutil").arg("--version").output().is_ok() {
+        if let Err(e) = generate_macos_icons(&args.macos_icon_svg, &args.output_dir) {
+            println!("  Warning: Failed to generate macOS icons: {}. This is expected on non-macOS platforms.", e);
+        }
+    } else {
+        println!("  Skipping macOS icon generation (iconutil not available - this is expected on non-macOS platforms)");
+    }
     generate_ios_icons(&args.macos_icon_svg, &args.output_dir)?;
     // Tray icons: macOS uses transparent logo.svg with white lines, others use colored version
     generate_tray_icon(&args.logo_svg, &args.macos_icon_svg, &args.output_dir)?;
