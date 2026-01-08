@@ -108,22 +108,22 @@ fn App() -> Element {
     use_effect(move || {
         spawn(async move {
             // 1. Start monitoring and setup event listener
+            // 注意：在 Dioxus 中，dioxus.send() 会自动发送到当前 eval 创建的通道
+            // 所以我们需要在同一个 eval 中定义监听器函数和创建 handler
             let mut handler = eval(
                 r#"
                 (async function() {
-                    try {
-                        console.log("Starting clipboard monitor...");
-                        await window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
-                        console.log("Clipboard monitor started successfully");
-                    } catch (e) {
-                        console.error("Failed to start monitor: " + e);
-                    }
-                    
-                    try {
-                        const { listen } = window.__TAURI__.event;
-                        console.log("Setting up clipboard event listener...");
-                        const unlisten = await listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
-                            console.log("Clipboard update event received:", JSON.stringify(event));
+                    // 定义设置监听器的函数（必须在同一个 eval 中，这样 dioxus.send() 才能正确工作）
+                    // 注意：dioxus.send 是绑定到当前 eval 的通道的，所以必须在同一个 eval 中使用
+                    window.__setupClipboardListener = async function() {
+                        try {
+                            const { listen } = window.__TAURI__.event;
+                            const unlisten = await listen('plugin:clipboard://clipboard-monitor/update', async (event) => {
+                                // 检查是否应该忽略这个事件（如果是在复制过程中触发的）
+                                if (window.__ignoreClipboardEvent) {
+                                    return;
+                                }
+                                
                             try {
                                 let clipboardData = null;
                                 
@@ -147,12 +147,8 @@ fn App() -> Element {
                                                 // 使用 Command.create 创建命令
                                                 const cmd = Command.create('whoami');
                                                 const output = await cmd.execute();
-                                                console.log("whoami output:", JSON.stringify(output));
                                                 if (output.code === 0 && output.stdout) {
                                                     username = output.stdout.trim();
-                                                    console.log("Got username:", username);
-                                                } else {
-                                                    console.log("whoami failed, code: " + output.code + ", stderr: " + output.stderr);
                                                 }
                                             } catch (e) {
                                                 console.error("Failed to get username via shell: " + e);
@@ -160,10 +156,10 @@ fn App() -> Element {
                                         }
                                         // 在移动平台（iOS/Android），shell 命令不支持，保持 'Unknown'
                                     } catch (e) {
-                                        console.log("Failed to get platform info: " + e);
+                                        // 平台信息获取失败，使用默认值
                                     }
                                 } catch (e) {
-                                    console.log("Failed to get system info, using defaults: " + e);
+                                    // 系统信息获取失败，使用默认值
                                     device = navigator.platform || 'Unknown';
                                     username = 'Unknown';
                                 }
@@ -193,19 +189,16 @@ fn App() -> Element {
                                             username: username,
                                             size: size
                                         };
-                                        console.log("Sending image data to Dioxus, size: " + size);
-                                        // dioxus.send() 会自动序列化对象
+                                        // 直接使用 dioxus.send，它绑定到创建 handler 的 eval 的通道
                                         dioxus.send(clipboardData);
                                         return; // 如果成功读取图片，就不读取文本了
                                     }
                                 } catch (imageError) {
-                                    console.log("No image in clipboard, trying text: " + imageError);
                                 }
                                 
                                 // 如果没有图片，尝试读取文本
                                 try {
                                     const text = await window.__TAURI__.core.invoke('plugin:clipboard|read_text');
-                                    console.log("Read clipboard text:", text);
                                     if (text && text.trim() !== '') {
                                         const size = new Blob([text]).size;
                                         clipboardData = {
@@ -217,8 +210,7 @@ fn App() -> Element {
                                             username: username,
                                             size: size
                                         };
-                                        console.log("Sending clipboard data to Dioxus:", JSON.stringify(clipboardData));
-                                        // dioxus.send() 会自动序列化对象
+                                        // 直接使用 dioxus.send，它绑定到创建 handler 的 eval 的通道
                                         dioxus.send(clipboardData);
                                     }
                                 } catch (textError) {
@@ -227,8 +219,26 @@ fn App() -> Element {
                             } catch (e) {
                                         console.error("Failed to read clipboard: " + String(e));
                             }
-                        });
-                        console.log("Clipboard event listener set up successfully");
+                            });
+                            // 保存 unlisten 函数到全局变量，以便在复制时可以停止监听
+                            window.__clipboardUnlisten = unlisten;
+                            return unlisten;
+                        } catch (e) {
+                            console.error("Failed to set up event listener: " + e);
+                            throw e;
+                        }
+                    };
+                    
+                    // 启动监控并设置监听器
+                    try {
+                        await window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
+                    } catch (e) {
+                        console.error("Failed to start monitor: " + e);
+                    }
+                    
+                    try {
+                        // 使用之前定义的函数来设置监听器
+                        await window.__setupClipboardListener();
                     } catch (e) {
                         console.error("Failed to set up event listener: " + e);
                     }
@@ -241,12 +251,9 @@ fn App() -> Element {
                 r#"
                 (async function() {
                     try {
-                        const { getCurrentWindow } = window.__TAURI__.window;
-                        const currentWindow = getCurrentWindow();
-                        
-                        // 当窗口获得焦点时，检查剪贴板是否有新内容
-                        currentWindow.onFocus(async () => {
-                            console.log("Window gained focus, checking clipboard...");
+                        // 使用 DOM 的 window.addEventListener 来监听焦点事件
+                        // 在 Tauri 2.0 中，窗口对象没有 onFocus 方法，需要使用 DOM API
+                        window.addEventListener('focus', async () => {
                             try {
                                 let clipboardData = null;
                                 
@@ -268,7 +275,6 @@ fn App() -> Element {
                                         username = 'Unknown';
                                     }
                                 } catch (e) {
-                                    console.log("Failed to get system info, using defaults: " + e);
                                     device = navigator.platform || 'Unknown';
                                     username = 'Unknown';
                                 }
@@ -296,13 +302,11 @@ fn App() -> Element {
                                             username: username,
                                             size: size
                                         };
-                                        console.log("Clipboard image data on focus");
                                         // dioxus.send() 会自动序列化对象
                                         dioxus.send(clipboardData);
                                         return;
                                     }
                                 } catch (imageError) {
-                                    console.log("No image in clipboard on focus, trying text");
                                 }
                                 
                                 // 如果没有图片，尝试读取文本
@@ -319,7 +323,6 @@ fn App() -> Element {
                                             username: username,
                                             size: size
                                         };
-                                        console.log("Clipboard data on focus:", JSON.stringify(clipboardData));
                                         // dioxus.send() 会自动序列化对象
                                         dioxus.send(clipboardData);
                                     }
@@ -451,12 +454,32 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
         let item_type = copy_type.clone();
         let toast_clone = toast_for_copy.clone();
         spawn(async move {
+            // 在复制前停止后端监控（只停止监控，不停止事件监听器）
+            let _ = eval(
+                r#"
+                (async function() {
+                    try {
+                        // 只停止后端监控，事件监听器保持运行
+                        await window.__TAURI__.core.invoke('plugin:clipboard|stop_monitor');
+                    } catch (e) {
+                        console.error("Failed to stop clipboard monitor: " + e);
+                    }
+                })()
+                "#
+            ).await;
+            
             if item_type == "image" {
                 let result = eval(&format!(
                     r#"
                     (async function() {{
                         try {{
-                            await window.__TAURI__.core.invoke('plugin:clipboard|write_image_base64', {{ base64: {} }});
+                            // 处理 base64 数据：移除 data:image/png;base64, 前缀（如果存在）
+                            let base64Data = {};
+                            if (typeof base64Data === 'string' && base64Data.startsWith('data:')) {{
+                                // 移除 data:image/png;base64, 前缀
+                                base64Data = base64Data.split(',')[1];
+                            }}
+                            await window.__TAURI__.core.invoke('plugin:clipboard|write_image_base64', {{ base64Image: base64Data }});
                             return JSON.stringify({{ success: true, message: '图片已复制到剪贴板' }});
                         }} catch (e) {{
                             return JSON.stringify({{ success: false, message: '复制图片失败: ' + e.message }});
@@ -509,6 +532,21 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
                         toast_clone.success("复制成功".to_string(), options);
                     }
                 }
+                
+                // 复制完成后，重新启动后端监控（无论成功还是失败）
+                // 注意：只重新启动监控，事件监听器保持运行，不需要重新设置
+                let _ = eval(
+                    r#"
+                    (async function() {
+                        try {
+                            // 只重新启动后端监控，事件监听器保持运行
+                            await window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
+                        } catch (e) {
+                            console.error("Failed to restart clipboard monitor: " + e);
+                        }
+                    })()
+                    "#
+                ).await;
             } else {
                 let text_content = content;
                 let result = eval(&format!(
@@ -568,6 +606,21 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
                         toast_clone.success("复制成功".to_string(), options);
                     }
                 }
+                
+                // 复制完成后，重新启动后端监控（无论成功还是失败）
+                // 注意：只重新启动监控，事件监听器保持运行，不需要重新设置
+                let _ = eval(
+                    r#"
+                    (async function() {
+                        try {
+                            // 只重新启动后端监控，事件监听器保持运行
+                            await window.__TAURI__.core.invoke('plugin:clipboard|start_monitor');
+                        } catch (e) {
+                            console.error("Failed to restart clipboard monitor: " + e);
+                        }
+                    })()
+                    "#
+                ).await;
             }
         });
     };
