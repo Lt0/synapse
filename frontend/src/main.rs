@@ -5,7 +5,67 @@ use dioxus_logger::tracing::Level;
 fn main() {
     console_error_panic_hook::set_once();
     dioxus_logger::init(Level::INFO).expect("failed to init logger");
-    dioxus::launch(App);
+    dioxus::launch(Root);
+}
+
+#[component]
+fn Root() -> Element {
+    // 初始化主题并监听系统主题变化
+    use_effect(move || {
+        spawn(async move {
+            // 检测系统主题并应用
+            let _ = eval(
+                r#"
+                (function() {
+                    // 从 localStorage 读取保存的主题偏好
+                    const savedTheme = localStorage.getItem('synapse-theme');
+                    let themeMode = savedTheme || 'system';
+                    
+                    // 检测系统主题
+                    function getSystemTheme() {
+                        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    }
+                    
+                    // 应用主题
+                    function applyTheme(mode) {
+                        const root = document.documentElement;
+                        if (mode === 'system') {
+                            mode = getSystemTheme();
+                        }
+                        if (mode === 'dark') {
+                            root.classList.add('dark');
+                            root.classList.remove('light');
+                        } else {
+                            root.classList.add('light');
+                            root.classList.remove('dark');
+                        }
+                    }
+                    
+                    // 初始应用
+                    applyTheme(themeMode);
+                    
+                    // 监听系统主题变化
+                    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                    const handleChange = (e) => {
+                        const currentTheme = localStorage.getItem('synapse-theme') || 'system';
+                        if (currentTheme === 'system') {
+                            applyTheme('system');
+                        }
+                    };
+                    mediaQuery.addEventListener('change', handleChange);
+                })();
+                "#,
+            );
+        });
+    });
+    
+    rsx! {
+        link {
+            rel: "stylesheet",
+            href: "/theme.css"
+        }
+        App {}
+    }
 }
 
 #[component]
@@ -59,33 +119,36 @@ fn App() -> Element {
 
     rsx! {
         div {
-            style: "width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; background-color: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden;",
+            class: "container",
 
             // Header
             header {
-                style: "width: 100%; padding: 20px; text-align: center; border-bottom: 1px solid #333; background: #222; display: flex; flex-direction: column; align-items: center;",
+                class: "header",
                 img {
                     src: "/logo.svg",
                     style: "width: 64px; height: 64px; margin-bottom: 15px;"
                 }
-                h2 { style: "color: red; font-size: 10px; margin: 0;", "DEBUG: FRONTEND LOADED" }
-                h1 { style: "margin: 0; font-size: 24px; color: #00ffcc;", "Synapse" }
-                p { style: "margin: 5px 0 0; font-size: 14px; color: #888;", "Clipboard synchronized" }
+                h2 { 
+                    style: "color: red; font-size: 10px; margin: 0;", 
+                    "DEBUG: FRONTEND LOADED" 
+                }
+                h1 { "Synapse" }
+                p { "Clipboard synchronized" }
             }
 
             // History List
             main {
-                style: "flex: 1; width: 100%; max-width: 600px; padding: 20px; overflow-y: auto;",
+                class: "main-content",
                 if clipboard_history.read().is_empty() {
                     div {
-                        style: "text-align: center; margin-top: 50px; color: #555;",
+                        class: "empty-state",
                         "Waiting for clipboard changes..."
                     }
                 } else {
                     for (i, item) in clipboard_history.read().iter().enumerate().rev() {
                         div {
                             key: "{i}",
-                            style: "margin-bottom: 10px; padding: 15px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #00ffcc; word-break: break-all;",
+                            class: "history-item",
                             "{item}"
                         }
                     }
@@ -94,7 +157,7 @@ fn App() -> Element {
 
             // Footer / Taskbar info
             footer {
-                style: "width: 100%; padding: 10px; text-align: center; font-size: 12px; color: #444; border-top: 1px solid #333;",
+                class: "footer",
                 "Running in background | Tray icon active"
             }
         }
