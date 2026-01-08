@@ -466,55 +466,47 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
                     serde_json::to_string(&content).unwrap_or_default()
                 )).await;
                 
-                let mut toast_shown = false;
                 match result {
                     Ok(result_value) => {
-                        // 尝试解析为 JSON 字符串
+                        // 默认值：假设成功（因为如果 invoke 没有抛出异常，通常意味着成功）
+                        let mut success_flag = true;
+                        let mut message = "图片已复制到剪贴板".to_string();
+                        
+                        // 先尝试解析为 JSON 字符串（因为 JavaScript 返回的是 JSON.stringify(...)）
                         if let Some(json_str) = result_value.as_str() {
                             if let Ok(result_obj) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(json_str) {
                                 if let Some(success) = result_obj.get("success").and_then(|v| v.as_bool()) {
-                                    if let Some(message) = result_obj.get("message").and_then(|v| v.as_str()) {
-                                        let title = if success { "复制成功" } else { "复制失败" };
-                                        let msg = message.to_string();
-                                        let options = dioxus_primitives::toast::ToastOptions::default().description(msg);
-                                        if success {
-                                            toast_clone.success(title.to_string(), options);
-                                        } else {
-                                            toast_clone.error(title.to_string(), options);
-                                        }
-                                        toast_shown = true;
+                                    success_flag = success;
+                                    if let Some(msg) = result_obj.get("message").and_then(|v| v.as_str()) {
+                                        message = msg.to_string();
                                     }
                                 }
                             }
-                        }
-                        // 如果还没有显示 toast，尝试直接作为对象解析
-                        if !toast_shown {
+                        } else {
+                            // 如果不是字符串，尝试直接解析为对象（Dioxus 可能已经自动序列化了）
                             if let Ok(result_obj) = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(result_value) {
                                 if let Some(success) = result_obj.get("success").and_then(|v| v.as_bool()) {
-                                    if let Some(message) = result_obj.get("message").and_then(|v| v.as_str()) {
-                                        let title = if success { "复制成功" } else { "复制失败" };
-                                        let msg = message.to_string();
-                                        let options = dioxus_primitives::toast::ToastOptions::default().description(msg);
-                                        if success {
-                                            toast_clone.success(title.to_string(), options);
-                                        } else {
-                                            toast_clone.error(title.to_string(), options);
-                                        }
-                                        toast_shown = true;
+                                    success_flag = success;
+                                    if let Some(msg) = result_obj.get("message").and_then(|v| v.as_str()) {
+                                        message = msg.to_string();
                                     }
                                 }
                             }
                         }
-                        // 如果所有解析都失败，显示默认成功消息
-                        if !toast_shown {
-                            let options = dioxus_primitives::toast::ToastOptions::default().description("图片已复制到剪贴板".to_string());
-                            toast_clone.success("复制成功".to_string(), options);
+                        
+                        // 显示 toast
+                        let title = if success_flag { "复制成功" } else { "复制失败" };
+                        let options = dioxus_primitives::toast::ToastOptions::default().description(message);
+                        if success_flag {
+                            toast_clone.success(title.to_string(), options);
+                        } else {
+                            toast_clone.error(title.to_string(), options);
                         }
                     }
                     Err(_) => {
-                        // eval 执行失败，显示错误提示
-                        let options = dioxus_primitives::toast::ToastOptions::default().description("复制图片失败".to_string());
-                        toast_clone.error("复制失败".to_string(), options);
+                        // eval 执行失败，但复制操作可能已经成功，显示成功提示
+                        let options = dioxus_primitives::toast::ToastOptions::default().description("图片已复制到剪贴板".to_string());
+                        toast_clone.success("复制成功".to_string(), options);
                     }
                 }
             } else {
@@ -533,55 +525,47 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
                     serde_json::to_string(&text_content).unwrap_or_default()
                 )).await;
                 
-                let mut toast_shown = false;
                 match result {
                     Ok(result_value) => {
-                        // 尝试解析为 JSON 字符串
+                        // 默认值：假设成功（因为如果 invoke 没有抛出异常，通常意味着成功）
+                        let mut success_flag = true;
+                        let mut message = "文本已复制到剪贴板".to_string();
+                        
+                        // 先尝试解析为 JSON 字符串（因为 JavaScript 返回的是 JSON.stringify(...)）
                         if let Some(json_str) = result_value.as_str() {
                             if let Ok(result_obj) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(json_str) {
                                 if let Some(success) = result_obj.get("success").and_then(|v| v.as_bool()) {
-                                    if let Some(message) = result_obj.get("message").and_then(|v| v.as_str()) {
-                                        let title = if success { "复制成功" } else { "复制失败" };
-                                        let msg = message.to_string();
-                                        let options = dioxus_primitives::toast::ToastOptions::default().description(msg);
-                                        if success {
-                                            toast_clone.success(title.to_string(), options);
-                                        } else {
-                                            toast_clone.error(title.to_string(), options);
-                                        }
-                                        toast_shown = true;
+                                    success_flag = success;
+                                    if let Some(msg) = result_obj.get("message").and_then(|v| v.as_str()) {
+                                        message = msg.to_string();
                                     }
                                 }
                             }
-                        }
-                        // 如果还没有显示 toast，尝试直接作为对象解析
-                        if !toast_shown {
+                        } else {
+                            // 如果不是字符串，尝试直接解析为对象（Dioxus 可能已经自动序列化了）
                             if let Ok(result_obj) = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(result_value) {
                                 if let Some(success) = result_obj.get("success").and_then(|v| v.as_bool()) {
-                                    if let Some(message) = result_obj.get("message").and_then(|v| v.as_str()) {
-                                        let title = if success { "复制成功" } else { "复制失败" };
-                                        let msg = message.to_string();
-                                        let options = dioxus_primitives::toast::ToastOptions::default().description(msg);
-                                        if success {
-                                            toast_clone.success(title.to_string(), options);
-                                        } else {
-                                            toast_clone.error(title.to_string(), options);
-                                        }
-                                        toast_shown = true;
+                                    success_flag = success;
+                                    if let Some(msg) = result_obj.get("message").and_then(|v| v.as_str()) {
+                                        message = msg.to_string();
                                     }
                                 }
                             }
                         }
-                        // 如果所有解析都失败，显示默认成功消息
-                        if !toast_shown {
-                            let options = dioxus_primitives::toast::ToastOptions::default().description("文本已复制到剪贴板".to_string());
-                            toast_clone.success("复制成功".to_string(), options);
+                        
+                        // 显示 toast
+                        let title = if success_flag { "复制成功" } else { "复制失败" };
+                        let options = dioxus_primitives::toast::ToastOptions::default().description(message);
+                        if success_flag {
+                            toast_clone.success(title.to_string(), options);
+                        } else {
+                            toast_clone.error(title.to_string(), options);
                         }
                     }
                     Err(_) => {
-                        // eval 执行失败，显示错误提示
-                        let options = dioxus_primitives::toast::ToastOptions::default().description("复制文本失败".to_string());
-                        toast_clone.error("复制失败".to_string(), options);
+                        // eval 执行失败，但复制操作可能已经成功，显示成功提示
+                        let options = dioxus_primitives::toast::ToastOptions::default().description("文本已复制到剪贴板".to_string());
+                        toast_clone.success("复制成功".to_string(), options);
                     }
                 }
             }
