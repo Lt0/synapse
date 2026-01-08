@@ -348,20 +348,20 @@ fn App() -> Element {
         div {
             class: "container",
 
-            // Header
-            header {
-                class: "header",
-                img {
-                    src: "/logo.svg",
-                    style: "width: 64px; height: 64px; margin-bottom: 15px;"
-                }
-                h2 { 
-                    style: "color: red; font-size: 10px; margin: 0;", 
-                    "DEBUG: FRONTEND LOADED" 
-                }
-                h1 { "Synapse" }
-                p { "Clipboard synchronized" }
-            }
+            // // Header
+            // header {
+            //     class: "header",
+            //     img {
+            //         src: "/logo.svg",
+            //         style: "width: 64px; height: 64px; margin-bottom: 15px;"
+            //     }
+            //     h2 { 
+            //         style: "color: red; font-size: 10px; margin: 0;", 
+            //         "DEBUG: FRONTEND LOADED" 
+            //     }
+            //     h1 { "Synapse" }
+            //     p { "Clipboard synchronized" }
+            // }
 
             // History List
             main {
