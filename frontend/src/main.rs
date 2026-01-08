@@ -2,6 +2,10 @@ use dioxus::document::eval;
 use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 
+mod components;
+use components::toast::ToastProvider;
+use dioxus_primitives::toast::use_toast;
+
 fn main() {
     console_error_panic_hook::set_once();
     dioxus_logger::init(Level::INFO).expect("failed to init logger");
@@ -64,7 +68,13 @@ fn Root() -> Element {
             rel: "stylesheet",
             href: "/theme.css"
         }
-        App {}
+        link {
+            rel: "stylesheet",
+            href: asset!("/assets/dx-components-theme.css")
+        }
+        ToastProvider {
+            App {}
+        }
     }
 }
 
@@ -401,6 +411,7 @@ fn App() -> Element {
 #[component]
 fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, clipboard_history: Signal<Vec<ClipboardItem>>) -> Element {
     let original_idx = total_len - 1 - rev_index;
+    let toast = use_toast();
     // 格式化时间（简单的格式化）
     let time_str = item.timestamp.map(|ts| {
         // 将毫秒时间戳转换为日期时间字符串
@@ -438,34 +449,70 @@ fn ClipboardItemView(item: ClipboardItem, rev_index: usize, total_len: usize, cl
         let item_type = copy_type.clone();
         spawn(async move {
             if item_type == "image" {
-                let _ = eval(&format!(
+                let result = eval(&format!(
                     r#"
                     (async function() {{
                         try {{
                             await window.__TAURI__.core.invoke('plugin:clipboard|write_image_base64', {{ base64: {} }});
-                            alert('图片已复制到剪贴板');
+                            return {{ success: true, message: '图片已复制到剪贴板' }};
                         }} catch (e) {{
-                            alert('复制图片失败: ' + e.message);
+                            return {{ success: false, message: '复制图片失败: ' + e.message }};
                         }}
-                    }})();
+                    }})()
                     "#,
                     serde_json::to_string(&content).unwrap_or_default()
-                ));
+                )).await;
+                
+                if let Ok(result_value) = result {
+                    if let Ok(result_obj) = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(result_value) {
+                        if let Some(success) = result_obj.get("success").and_then(|v| v.as_bool()) {
+                            if let Some(message) = result_obj.get("message").and_then(|v| v.as_str()) {
+                                // 使用 dioxus-primitives toast API 显示提示
+                                let title = if success { "复制成功" } else { "复制失败" };
+                                let msg = message.to_string();
+                                let options = dioxus_primitives::toast::ToastOptions::default().description(msg);
+                                if success {
+                                    toast.success(title.to_string(), options);
+                                } else {
+                                    toast.error(title.to_string(), options);
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
                 let text_content = content;
-                let _ = eval(&format!(
+                let result = eval(&format!(
                     r#"
                     (async function() {{
                         try {{
                             await window.__TAURI__.core.invoke('plugin:clipboard|write_text', {{ text: {} }});
-                            alert('文本已复制到剪贴板');
+                            return {{ success: true, message: '文本已复制到剪贴板' }};
                         }} catch (e) {{
-                            alert('复制文本失败: ' + e.message);
+                            return {{ success: false, message: '复制文本失败: ' + e.message }};
                         }}
-                    }})();
+                    }})()
                     "#,
                     serde_json::to_string(&text_content).unwrap_or_default()
-                ));
+                )).await;
+                
+                if let Ok(result_value) = result {
+                    if let Ok(result_obj) = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(result_value) {
+                        if let Some(success) = result_obj.get("success").and_then(|v| v.as_bool()) {
+                            if let Some(message) = result_obj.get("message").and_then(|v| v.as_str()) {
+                                // 使用 dioxus-primitives toast API 显示提示
+                                let title = if success { "复制成功" } else { "复制失败" };
+                                let msg = message.to_string();
+                                let options = dioxus_primitives::toast::ToastOptions::default().description(msg);
+                                if success {
+                                    toast.success(title.to_string(), options);
+                                } else {
+                                    toast.error(title.to_string(), options);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
     };
