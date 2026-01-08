@@ -14,7 +14,16 @@
     "clipboard:allow-start-monitor",
     "clipboard:allow-stop-monitor",
     "os:allow-hostname",
-    "shell:allow-execute",
-    "shell:allow-spawn"
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "whoami",
+          "cmd": "whoami",
+          "args": [],
+          "sidecar": false
+        }
+      ]
+    }
   ]
 }

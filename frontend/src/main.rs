@@ -134,13 +134,18 @@ fn App() -> Element {
                                         if (platform === 'windows' || platform === 'macos' || platform === 'linux') {
                                             try {
                                                 const { Command } = window.__TAURI__.shell;
-                                                const cmd = new Command('whoami');
+                                                // 使用 Command.create 创建命令
+                                                const cmd = Command.create('whoami');
                                                 const output = await cmd.execute();
+                                                console.log("whoami output:", output);
                                                 if (output.code === 0 && output.stdout) {
                                                     username = output.stdout.trim();
+                                                    console.log("Got username:", username);
+                                                } else {
+                                                    console.log("whoami failed, code:", output.code, "stderr:", output.stderr);
                                                 }
                                             } catch (e) {
-                                                console.log("Failed to get username via shell:", e);
+                                                console.error("Failed to get username via shell:", e);
                                             }
                                         }
                                         // 在移动平台（iOS/Android），shell 命令不支持，保持 'Unknown'
