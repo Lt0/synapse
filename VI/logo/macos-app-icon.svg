@@ -38,15 +38,15 @@
     <circle cx="512" cy="190" r="18" fill="white" />
 
     <!-- Pathways -->
-    <path d="M330 350 L 450 350 L 500 450 L 650 450" stroke="url(#logo_grad)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8"/>
-    <circle cx="650" cy="450" r="26" fill="white" />
-    <path d="M330 550 L 400 550 L 450 650 L 600 650" stroke="url(#logo_grad)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
-    <circle cx="600" cy="650" r="22" fill="#00FFFF" />
-    <path d="M330 750 L 550 750 L 600 820" stroke="url(#logo_grad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.4"/>
-    <circle cx="600" cy="820" r="18" fill="#00FFFF" opacity="0.7" />
+    <path d="M 352 350 L 472 350 L 552 450 L 672 450" stroke="url(#logo_grad)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8"/>
+    <circle cx="672" cy="450" r="26" fill="white" />
+    <path d="M 377 550 L 487 550 L 537 650 L 647 650" stroke="url(#logo_grad)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
+    <circle cx="647" cy="650" r="22" fill="#00FFFF" />
+    <path d="M 377 750 L 597 750 L 647 820" stroke="url(#logo_grad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.4"/>
+    <circle cx="647" cy="820" r="18" fill="#00FFFF" opacity="0.7" />
 
-    <circle cx="330" cy="350" r="18" fill="#00FFFF" />
-    <circle cx="330" cy="550" r="16" fill="#00FFFF" opacity="0.8" />
-    <circle cx="330" cy="750" r="14" fill="#00FFFF" opacity="0.6" />
+    <circle cx="352" cy="350" r="18" fill="#00FFFF" />
+    <circle cx="377" cy="550" r="16" fill="#00FFFF" opacity="0.8" />
+    <circle cx="377" cy="750" r="14" fill="#00FFFF" opacity="0.6" />
   </g>
 </svg>
