@@ -126,16 +126,54 @@ body {
 /* 历史记录项样式 */
 .history-item {
   margin-bottom: 10px;
-  padding: 15px;
   background: rgb(var(--card));
   border-radius: 8px;
   border-left: 4px solid rgb(var(--primary));
-  word-break: break-all;
-  transition: background-color 0.2s ease;
+  overflow: hidden;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .history-item:hover {
   background: rgb(var(--accent));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* 元数据头部 */
+.history-item-header {
+  padding: 10px 15px;
+  background: rgba(var(--primary), 0.1);
+  border-bottom: 1px solid rgb(var(--border));
+}
+
+.history-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: rgb(var(--muted-foreground));
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.meta-item::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgb(var(--primary));
+  margin-right: 6px;
+}
+
+/* 内容区域 */
+.history-item-content {
+  padding: 15px;
+  word-break: break-all;
 }
 
 /* Footer 样式 */
@@ -156,22 +194,22 @@ body {
 }
 
 /* HTML 内容样式 - 保留原始格式 */
-.history-item-html {
+.history-item-content.history-item-html {
   /* 允许 HTML 内容保持原始样式 */
   overflow-x: auto;
 }
 
-.history-item-html * {
+.history-item-content.history-item-html * {
   max-width: 100%;
 }
 
 /* 代码内容样式 */
-.history-item-code {
+.history-item-content.history-item-code {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
-  background: rgb(var(--card));
+  background: transparent;
 }
 
-.history-item-code pre {
+.history-item-content.history-item-code pre {
   margin: 0;
   padding: 0;
   background: transparent;
@@ -184,15 +222,14 @@ body {
 }
 
 /* 图片内容样式 */
-.history-item-image {
+.history-item-content.history-item-image {
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 15px;
-  background: rgb(var(--card));
 }
 
-.history-item-image img {
+.history-item-content.history-item-image img {
   max-width: 100%;
   max-height: 400px;
   height: auto;
@@ -203,7 +240,62 @@ body {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.history-item-image img:hover {
+.history-item-content.history-item-image img:hover {
   transform: scale(1.02);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* 操作按钮区域 */
+.history-item-actions {
+  display: flex;
+  gap: 10px;
+  padding: 10px 15px;
+  border-top: 1px solid rgb(var(--border));
+  background: rgba(var(--muted), 0.5);
+  justify-content: flex-end;
+}
+
+.action-button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgb(var(--foreground));
+}
+
+.action-button-copy {
+  background: rgb(var(--primary));
+  color: rgb(var(--primary-foreground));
+}
+
+.action-button-copy:hover {
+  background: rgba(var(--primary), 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-button-delete {
+  background: rgb(var(--destructive));
+  color: rgb(var(--destructive-foreground));
+}
+
+.action-button-delete:hover {
+  background: rgba(var(--destructive), 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 复制状态提示 */
+.copy-status-message {
+  padding: 8px 15px;
+  margin: 10px 15px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  background: rgba(var(--primary), 0.1);
+  color: rgb(var(--primary));
+  border: 1px solid rgb(var(--primary));
 }

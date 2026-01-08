@@ -12,6 +12,9 @@
     "clipboard:allow-read-image-base64",
     "clipboard:allow-write-image-base64",
     "clipboard:allow-start-monitor",
-    "clipboard:allow-stop-monitor"
+    "clipboard:allow-stop-monitor",
+    "os:allow-hostname",
+    "shell:allow-execute",
+    "shell:allow-spawn"
   ]
 }
